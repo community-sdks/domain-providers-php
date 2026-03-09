@@ -1,0 +1,28 @@
+{
+  "name": "domain-providers/php",
+  "description": "Capability-based domain provider contract implementation for PHP with GoDaddy adapter.",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": "^8.2",
+    "community-sdks/godaddy-php": "^1.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "DomainProviders\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "DomainProviders\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit --colors=always"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
