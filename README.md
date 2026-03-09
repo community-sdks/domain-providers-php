@@ -1,6 +1,6 @@
-# domain-providers/php
+# community-sdks/domain-providers-php
 
-PHP implementation of the `domain-providers/contracts` specification.
+PHP implementation of the [`contracts`](https://github.com/community-sdks/contracts/tree/main/domain-providers) specification.
 
 This package provides:
 
@@ -11,7 +11,7 @@ This package provides:
 ## Install
 
 ```bash
-composer require domain-providers/php
+composer require community-sdks/domain-providers-php
 ```
 
 GoDaddy support is included out of the box.

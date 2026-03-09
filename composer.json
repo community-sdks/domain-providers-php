@@ -1,5 +1,5 @@
 {
-  "name": "domain-providers/php",
+  "name": "community-sdks/domain-providers-php",
   "description": "Capability-based domain provider contract implementation for PHP with GoDaddy adapter.",
   "type": "library",
   "license": "MIT",
