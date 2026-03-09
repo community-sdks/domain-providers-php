@@ -1,3 +1,3 @@
 # GoDaddyProviderFactory Methods
 
-- `fromConfig`: `from-config.md`
+- [`fromConfig`](from-config.md)

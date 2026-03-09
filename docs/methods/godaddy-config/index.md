@@ -1,3 +1,3 @@
 # GoDaddyConfig Methods
 
-- `__construct`: `constructor.md`
+- [`__construct`](constructor.md)

@@ -69,12 +69,12 @@ Unsupported provider operations are reported through `UnsupportedCapabilityExcep
 
 Detailed method-by-method documentation is available in:
 
-- `docs/README.md`
-- `docs/methods/domain-provider/index.md`
-- `docs/methods/provider-registry/index.md`
-- `docs/methods/godaddy-provider-factory/index.md`
-- `docs/methods/godaddy-config/index.md`
-- `docs/methods/godaddy-domains-api-interface/index.md`
+- [`docs/README.md`](docs/README.md)
+- [`docs/methods/domain-provider/index.md`](docs/methods/domain-provider/index.md)
+- [`docs/methods/provider-registry/index.md`](docs/methods/provider-registry/index.md)
+- [`docs/methods/godaddy-provider-factory/index.md`](docs/methods/godaddy-provider-factory/index.md)
+- [`docs/methods/godaddy-config/index.md`](docs/methods/godaddy-config/index.md)
+- [`docs/methods/godaddy-domains-api-interface/index.md`](docs/methods/godaddy-domains-api-interface/index.md)
 
 ## Custom providers outside this package
 
