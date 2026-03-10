@@ -1,6 +1,7 @@
 
 [Docs Home](../../README.md)
 
+- [`tlds`](tlds.md)
 - [`available`](available.md)
 - [`list`](list.md)
 - [`getAgreement`](get-agreement.md)

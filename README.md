@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 use DomainProviders\DTO\DomainName;
 use DomainProviders\DTO\DomainRegistrationPeriod;
+use DomainProviders\Handler\DomainProviderHandler;
 use DomainProviders\Provider\GoDaddy\GoDaddyConfig;
 use DomainProviders\Provider\GoDaddy\GoDaddyProviderFactory;
 
@@ -33,6 +34,11 @@ $config = new GoDaddyConfig(
     apiSecret: 'your-secret',
     customerId: 'your-customer-id',
     shopperId: 'optional-shopper-id',
+    // Routing fields shared by all ProviderConfig implementations:
+    onlyTlds: null,
+    exceptTlds: ['rs', 'co.rs', 'in.rs'],
+    priority: 20,
+    priorityTlds: ['net'],
 );
 
 $provider = GoDaddyProviderFactory::fromConfig($config);
@@ -46,6 +52,57 @@ if ($availability->available) {
     );
 }
 ```
+
+## Provider-agnostic routing handler
+
+Use `DomainProviderHandler` to register multiple providers and route by TLD rules.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use DomainProviders\DTO\DomainName;
+use DomainProviders\Handler\DomainProviderHandler;
+use DomainProviders\Provider\GoDaddy\GoDaddyConfig;
+use DomainProviders\Provider\GoDaddy\GoDaddyProviderFactory;
+use Vendor\Namecheap\NamecheapConfig;
+use Vendor\Namecheap\NamecheapProviderFactory;
+
+$godaddyConfig = new GoDaddyConfig(
+    apiKey: 'gd-key',
+    apiSecret: 'gd-secret',
+    customerId: 'gd-customer',
+    exceptTlds: ['rs', 'co.rs', 'in.rs'],
+    priority: 20,
+);
+
+$namecheapConfig = new NamecheapConfig(
+    apiKey: 'nc-key',
+    apiSecret: 'nc-secret',
+    onlyTlds: ['rs', 'co.rs', 'in.rs'],
+    priority: 10,
+    priorityTlds: ['com'],
+);
+
+$handler = (new DomainProviderHandler())
+    ->registerProvider('godaddy', GoDaddyProviderFactory::fromConfig($godaddyConfig), $godaddyConfig)
+    ->registerProvider('namecheap', NamecheapProviderFactory::fromConfig($namecheapConfig), $namecheapConfig)
+    ->preferProviderForTld('com', 'namecheap');
+
+$availability = $handler->checkAvailability(new DomainName('example.co.rs')); // routed to namecheap
+$comAvailability = $handler->checkAvailability(new DomainName('example.com')); // prefers namecheap
+
+// If provider supports TLD discovery, you can inspect its live TLD list.
+$godaddyTlds = $handler->listProviderTlds('godaddy');
+```
+
+Routing decision order for domain-based operations:
+
+- explicit `preferProviderForTld()` match
+- `onlyTlds` and `exceptTlds` filtering
+- `priorityTlds` match
+- numeric `priority` (lower number = higher priority)
 
 ## Contract coverage
 

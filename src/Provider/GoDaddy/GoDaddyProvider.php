@@ -5,6 +5,7 @@ namespace DomainProviders\Provider\GoDaddy;
 
 use DomainProviders\Capabilities;
 use DomainProviders\Contract\DomainProviderInterface;
+use DomainProviders\Contract\TldDiscoveryInterface;
 use DomainProviders\DTO\AvailabilityResult;
 use DomainProviders\DTO\DnsRecord;
 use DomainProviders\DTO\DomainContact;
@@ -23,7 +24,7 @@ use DomainProviders\Exception\DomainProviderException;
 use DomainProviders\Exception\UnsupportedCapabilityException;
 use DomainProviders\Statuses;
 
-final class GoDaddyProvider implements DomainProviderInterface
+final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInterface
 {
     /** @var array<string, bool> */
     private array $capabilities = [
@@ -68,6 +69,48 @@ final class GoDaddyProvider implements DomainProviderInterface
     public function supports(string $capability): bool
     {
         return $this->capabilities[$capability] ?? false;
+    }
+
+    public function listSupportedTlds(): array
+    {
+        try {
+            $response = $this->domainsApi->tlds();
+            $data = $this->extractData($response);
+
+            if (!is_array($data)) {
+                return [];
+            }
+
+            $tlds = [];
+            foreach ($data as $item) {
+                if (is_string($item)) {
+                    $normalized = ltrim(strtolower(trim($item)), '.');
+                    if ($normalized !== '') {
+                        $tlds[$normalized] = true;
+                    }
+
+                    continue;
+                }
+
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $candidate = $item['name'] ?? $item['tld'] ?? $item['extension'] ?? null;
+                if (!is_string($candidate)) {
+                    continue;
+                }
+
+                $normalized = ltrim(strtolower(trim($candidate)), '.');
+                if ($normalized !== '') {
+                    $tlds[$normalized] = true;
+                }
+            }
+
+            return array_values(array_keys($tlds));
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     public function checkAvailability(DomainName $domain): AvailabilityResult

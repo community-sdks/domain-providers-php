@@ -69,6 +69,24 @@ final class GoDaddyProviderTest extends TestCase
         self::assertFalse($provider->supports(Capabilities::DNS_RECORD_LIST));
     }
 
+    public function testListSupportedTldsMapsFromTldsEndpoint(): void
+    {
+        $api = $this->apiMock();
+        $api->expects(self::once())
+            ->method('tlds')
+            ->willReturn([
+                'data' => [
+                    ['name' => 'com'],
+                    ['name' => '.NET'],
+                    'org',
+                    ['invalid' => 'ignored'],
+                ],
+            ]);
+
+        $tlds = $this->provider($api)->listSupportedTlds();
+        self::assertSame(['com', 'net', 'org'], $tlds);
+    }
+
     public function testCheckAvailabilityMapsResponse(): void
     {
         $api = $this->apiMock();

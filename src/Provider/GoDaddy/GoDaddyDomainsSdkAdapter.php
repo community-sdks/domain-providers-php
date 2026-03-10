@@ -16,6 +16,11 @@ final class GoDaddyDomainsSdkAdapter implements GoDaddyDomainsApiInterface
         return $this->callFirstAvailable(['available'], [$domain, $checkType, $forTransfer]);
     }
 
+    public function tlds(): mixed
+    {
+        return $this->callFirstAvailable(['tlds'], []);
+    }
+
     public function list(
         ?string $xShopperId = null,
         ?array $statuses = null,

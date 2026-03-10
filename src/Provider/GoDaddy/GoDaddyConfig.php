@@ -3,8 +3,15 @@ declare(strict_types=1);
 
 namespace DomainProviders\Provider\GoDaddy;
 
-final class GoDaddyConfig
+use DomainProviders\Config\ProviderConfig;
+
+class GoDaddyConfig extends ProviderConfig
 {
+    /**
+     * @param list<string>|null $onlyTlds
+     * @param list<string> $exceptTlds
+     * @param list<string> $priorityTlds
+     */
     public function __construct(
         public readonly string $apiKey,
         public readonly string $apiSecret,
@@ -12,6 +19,11 @@ final class GoDaddyConfig
         public readonly ?string $shopperId = null,
         public readonly string $environment = 'production',
         public readonly ?string $marketId = null,
+        ?array $onlyTlds = null,
+        array $exceptTlds = [],
+        int $priority = 100,
+        array $priorityTlds = [],
     ) {
+        parent::__construct($onlyTlds, $exceptTlds, $priority, $priorityTlds);
     }
 }

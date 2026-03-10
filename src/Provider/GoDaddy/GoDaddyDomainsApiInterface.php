@@ -5,6 +5,8 @@ namespace DomainProviders\Provider\GoDaddy;
 
 interface GoDaddyDomainsApiInterface
 {
+    public function tlds(): mixed;
+
     public function available(string $domain, ?string $checkType = null, ?bool $forTransfer = null): mixed;
 
     public function list(
