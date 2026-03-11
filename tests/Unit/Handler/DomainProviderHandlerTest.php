@@ -13,10 +13,17 @@ use DomainProviders\DTO\DomainContact;
 use DomainProviders\DTO\DomainInfo;
 use DomainProviders\DTO\DomainName;
 use DomainProviders\DTO\DomainPrice;
+use DomainProviders\DTO\DomainRegistrationResult;
 use DomainProviders\DTO\DomainRegistrationPeriod;
+use DomainProviders\DTO\DomainRenewalResult;
+use DomainProviders\DTO\DomainTransferResult;
+use DomainProviders\DTO\DnsRecordCreateResult;
+use DomainProviders\DTO\DnsRecordDeleteResult;
+use DomainProviders\DTO\DnsRecordUpdateResult;
 use DomainProviders\DTO\NameserverSet;
-use DomainProviders\DTO\OperationResult;
+use DomainProviders\DTO\NameserverUpdateResult;
 use DomainProviders\DTO\ProviderMetadata;
+use DomainProviders\DTO\ProviderRequestContext;
 use DomainProviders\DTO\TransferAvailabilityResult;
 use DomainProviders\Handler\DomainProviderHandler;
 use PHPUnit\Framework\TestCase;
@@ -141,19 +148,19 @@ final class RoutingTestProvider implements DomainProviderInterface, TldDiscovery
         return new AvailabilityResult(true, false, null, null, $this->key);
     }
 
-    public function registerDomain(DomainName $domain, DomainRegistrationPeriod $period, DomainContact $registrantContact, ?NameserverSet $nameservers = null, ?bool $privacyEnabled = null, ?string $marketId = null): OperationResult
+    public function registerDomain(DomainName $domain, DomainRegistrationPeriod $period, DomainContact $registrantContact, ?NameserverSet $nameservers = null, ?bool $privacyEnabled = null, ?string $marketId = null, ?ProviderRequestContext $context = null): DomainRegistrationResult
     {
-        return new OperationResult(true, providerReference: $this->key);
+        return new DomainRegistrationResult(true, providerReference: $this->key);
     }
 
-    public function renewDomain(DomainName $domain, DomainRegistrationPeriod $period): OperationResult
+    public function renewDomain(DomainName $domain, DomainRegistrationPeriod $period): DomainRenewalResult
     {
-        return new OperationResult(true, providerReference: $this->key);
+        return new DomainRenewalResult(true, providerReference: $this->key);
     }
 
-    public function transferDomain(DomainName $domain, string $authCode, ?DomainContact $registrantContact = null): OperationResult
+    public function transferDomain(DomainName $domain, string $authCode, ?DomainContact $registrantContact = null): DomainTransferResult
     {
-        return new OperationResult(true, providerReference: $this->key);
+        return new DomainTransferResult(true, providerReference: $this->key);
     }
 
     public function getDomainInfo(DomainName $domain): DomainInfo
@@ -161,7 +168,7 @@ final class RoutingTestProvider implements DomainProviderInterface, TldDiscovery
         return new DomainInfo($domain->full, 'active', providerReference: $this->key);
     }
 
-    public function listDomains(?int $page = null, ?int $pageSize = null, ?string $status = null, ?string $shopperId = null): array
+    public function listDomains(?int $page = null, ?int $pageSize = null, ?string $status = null, ?string $shopperId = null, ?ProviderRequestContext $context = null): array
     {
         return [];
     }
@@ -171,9 +178,9 @@ final class RoutingTestProvider implements DomainProviderInterface, TldDiscovery
         return new NameserverSet(['ns1.example.test']);
     }
 
-    public function setNameservers(DomainName $domain, NameserverSet $nameservers): OperationResult
+    public function setNameservers(DomainName $domain, NameserverSet $nameservers): NameserverUpdateResult
     {
-        return new OperationResult(true, providerReference: $this->key);
+        return new NameserverUpdateResult(true, providerReference: $this->key);
     }
 
     public function listDnsRecords(DomainName $domain): array
@@ -181,19 +188,19 @@ final class RoutingTestProvider implements DomainProviderInterface, TldDiscovery
         return [];
     }
 
-    public function createDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null): OperationResult
+    public function createDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordCreateResult
     {
-        return new OperationResult(true, providerReference: $this->key);
+        return new DnsRecordCreateResult(true, providerReference: $this->key);
     }
 
-    public function updateDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null): OperationResult
+    public function updateDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordUpdateResult
     {
-        return new OperationResult(true, providerReference: $this->key);
+        return new DnsRecordUpdateResult(true, providerReference: $this->key);
     }
 
-    public function deleteDnsRecord(DomainName $domain, ?string $recordId = null, ?DnsRecord $matchRecord = null, ?string $shopperId = null): OperationResult
+    public function deleteDnsRecord(DomainName $domain, ?string $recordId = null, ?DnsRecord $matchRecord = null, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordDeleteResult
     {
-        return new OperationResult(true, providerReference: $this->key);
+        return new DnsRecordDeleteResult(true, providerReference: $this->key);
     }
 
     public function getDomainPricing(?DomainName $domain = null, ?string $tld = null, ?DomainRegistrationPeriod $period = null): DomainPrice

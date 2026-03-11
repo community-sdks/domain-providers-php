@@ -13,4 +13,4 @@ This folder contains method-level documentation for the public API of `domain-pr
 - [`methods/godaddy-config/index.md`](methods/godaddy-config/index.md): `GoDaddyConfig` constructor details
 - [`methods/godaddy-domains-api-interface/index.md`](methods/godaddy-domains-api-interface/index.md): GoDaddy domains API bridge methods
 
-Each file documents one method with signature, input parameters, return type, error behavior, and usage examples.
+Each folder now uses a single `index.md` that documents all related methods with signatures, input parameters, return types, error behavior, and usage examples.

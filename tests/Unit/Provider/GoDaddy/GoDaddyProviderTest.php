@@ -14,6 +14,7 @@ use DomainProviders\Exception\UnsupportedCapabilityException;
 use DomainProviders\Provider\GoDaddy\GoDaddyConfig;
 use DomainProviders\Provider\GoDaddy\GoDaddyDomainsApiInterface;
 use DomainProviders\Provider\GoDaddy\GoDaddyProvider;
+use DomainProviders\DTO\ProviderRequestContext;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -145,6 +146,33 @@ final class GoDaddyProviderTest extends TestCase
         self::assertSame('register_domain.success', $result->code);
     }
 
+    public function testRegisterDomainUsesMarketIdFromContextWhenParamMissing(): void
+    {
+        $api = $this->apiMock();
+        $api->expects(self::once())
+            ->method('getAgreement')
+            ->with(['com'], true, 'fr-FR', false)
+            ->willReturn(['data' => ['agreementKeys' => ['DNRA']]]);
+
+        $api->expects(self::once())
+            ->method('registerDomainForCustomer')
+            ->willReturn(['ok' => true]);
+
+        $context = new ProviderRequestContext(scopes: ['market_id' => 'fr-FR']);
+
+        $result = $this->provider($api)->registerDomain(
+            new DomainName('example.com'),
+            new DomainRegistrationPeriod(1),
+            $this->contact(),
+            null,
+            true,
+            null,
+            $context,
+        );
+
+        self::assertTrue($result->success);
+    }
+
     public function testRenewDomainMapsRequest(): void
     {
         $api = $this->apiMock();
@@ -226,6 +254,21 @@ final class GoDaddyProviderTest extends TestCase
         self::assertSame('one.com', $items[0]->domain);
         self::assertSame('active', $items[0]->status);
         self::assertSame('pending', $items[1]->status);
+    }
+
+    public function testListDomainsUsesShopperFromContextWhenParamMissing(): void
+    {
+        $api = $this->apiMock();
+        $api->expects(self::once())
+            ->method('list')
+            ->with('shopper-ctx', ['active'], null, 10, '1', null, null)
+            ->willReturn(['data' => []]);
+
+        $context = new ProviderRequestContext(scopes: ['shopper_id' => 'shopper-ctx']);
+
+        $items = $this->provider($api)->listDomains(page: 1, pageSize: 10, status: 'active', shopperId: null, context: $context);
+
+        self::assertSame([], $items);
     }
 
     public function testGetNameserversUsesDomainInfo(): void

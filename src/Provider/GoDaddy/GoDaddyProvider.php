@@ -12,12 +12,19 @@ use DomainProviders\DTO\DomainContact;
 use DomainProviders\DTO\DomainInfo;
 use DomainProviders\DTO\DomainName;
 use DomainProviders\DTO\DomainPrice;
+use DomainProviders\DTO\DomainRegistrationResult;
 use DomainProviders\DTO\DomainRegistrationPeriod;
+use DomainProviders\DTO\DomainRenewalResult;
+use DomainProviders\DTO\DomainTransferResult;
+use DomainProviders\DTO\DnsRecordCreateResult;
+use DomainProviders\DTO\DnsRecordDeleteResult;
+use DomainProviders\DTO\DnsRecordUpdateResult;
 use DomainProviders\DTO\Money;
 use DomainProviders\DTO\NameserverSet;
-use DomainProviders\DTO\OperationResult;
+use DomainProviders\DTO\NameserverUpdateResult;
 use DomainProviders\DTO\ProviderCapability;
 use DomainProviders\DTO\ProviderMetadata;
+use DomainProviders\DTO\ProviderRequestContext;
 use DomainProviders\DTO\TransferAvailabilityResult;
 use DomainProviders\ErrorCategory;
 use DomainProviders\Exception\DomainProviderException;
@@ -151,8 +158,11 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         ?NameserverSet $nameservers = null,
         ?bool $privacyEnabled = null,
         ?string $marketId = null,
-    ): OperationResult {
+        ?ProviderRequestContext $context = null,
+    ): DomainRegistrationResult {
         $this->assertCapability(Capabilities::DOMAIN_REGISTRATION);
+
+        $resolvedMarketId = $marketId ?? $context?->scopeAsString('market_id', 'marketId', 'market');
 
         $body = [
             'domain' => $domain->full,
@@ -160,7 +170,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
             'consent' => [
                 'agreedAt' => gmdate('Y-m-d\\TH:i:s\\Z'),
                 'agreedBy' => 'domain-providers/php',
-                'agreementKeys' => $this->fetchAgreementKeys($domain->tld, $privacyEnabled ?? false, $marketId),
+                'agreementKeys' => $this->fetchAgreementKeys($domain->tld, $privacyEnabled ?? false, $resolvedMarketId),
             ],
             'contactAdmin' => $this->toGoDaddyContact($registrantContact),
             'contactBilling' => $this->toGoDaddyContact($registrantContact),
@@ -183,7 +193,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
                 body: $body,
             );
 
-            return new OperationResult(
+            return new DomainRegistrationResult(
                 success: (bool) ($response['ok'] ?? true),
                 message: 'Domain registration request accepted.',
                 code: 'register_domain.success',
@@ -195,7 +205,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         }
     }
 
-    public function renewDomain(DomainName $domain, DomainRegistrationPeriod $period): OperationResult
+    public function renewDomain(DomainName $domain, DomainRegistrationPeriod $period): DomainRenewalResult
     {
         $this->assertCapability(Capabilities::DOMAIN_RENEWAL);
 
@@ -206,7 +216,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
                 body: ['period' => $period->years],
             );
 
-            return new OperationResult(
+            return new DomainRenewalResult(
                 success: (bool) ($response['ok'] ?? true),
                 message: 'Domain renewal request accepted.',
                 code: 'renew_domain.success',
@@ -222,7 +232,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         DomainName $domain,
         string $authCode,
         ?DomainContact $registrantContact = null,
-    ): OperationResult {
+    ): DomainTransferResult {
         $this->assertCapability(Capabilities::DOMAIN_TRANSFER);
 
         $body = [
@@ -249,7 +259,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
                 body: $body,
             );
 
-            return new OperationResult(
+            return new DomainTransferResult(
                 success: (bool) ($response['ok'] ?? true),
                 message: 'Domain transfer request initiated.',
                 code: 'transfer_domain.initiated',
@@ -292,13 +302,15 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         }
     }
 
-    public function listDomains(?int $page = null, ?int $pageSize = null, ?string $status = null, ?string $shopperId = null): array
+    public function listDomains(?int $page = null, ?int $pageSize = null, ?string $status = null, ?string $shopperId = null, ?ProviderRequestContext $context = null): array
     {
         $this->assertCapability(Capabilities::DOMAIN_LISTING);
 
+        $resolvedShopperId = $shopperId ?? $context?->scopeAsString('shopper_id', 'shopperId', 'shopper');
+
         try {
             $response = $this->domainsApi->list(
-                xShopperId: $shopperId,
+                xShopperId: $resolvedShopperId,
                 statuses: $status !== null ? [$status] : null,
                 limit: $pageSize,
                 marker: $page !== null ? (string) $page : null,
@@ -344,7 +356,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         }
     }
 
-    public function setNameservers(DomainName $domain, NameserverSet $nameservers): OperationResult
+    public function setNameservers(DomainName $domain, NameserverSet $nameservers): NameserverUpdateResult
     {
         $this->assertCapability(Capabilities::NAMESERVER_UPDATE);
 
@@ -357,7 +369,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
                 ],
             );
 
-            return new OperationResult(
+            return new NameserverUpdateResult(
                 success: (bool) ($response['ok'] ?? true),
                 message: 'Nameservers updated.',
                 code: 'set_nameservers.success',
@@ -376,18 +388,20 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         throw new UnsupportedCapabilityException(Capabilities::DNS_RECORD_LIST);
     }
 
-    public function createDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null): OperationResult
+    public function createDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordCreateResult
     {
         $this->assertCapability(Capabilities::DNS_RECORD_CREATE);
+
+        $resolvedShopperId = $shopperId ?? $context?->scopeAsString('shopper_id', 'shopperId', 'shopper');
 
         try {
             $response = $this->domainsApi->recordAdd(
                 domain: $domain->full,
                 records: [$record->toArray()],
-                xShopperId: $shopperId,
+                xShopperId: $resolvedShopperId,
             );
 
-            return new OperationResult(
+            return new DnsRecordCreateResult(
                 success: (bool) ($response['ok'] ?? true),
                 message: 'DNS record created.',
                 code: 'create_dns_record.success',
@@ -399,9 +413,11 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         }
     }
 
-    public function updateDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null): OperationResult
+    public function updateDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordUpdateResult
     {
         $this->assertCapability(Capabilities::DNS_RECORD_UPDATE);
+
+        $resolvedShopperId = $shopperId ?? $context?->scopeAsString('shopper_id', 'shopperId', 'shopper');
 
         try {
             $response = $this->domainsApi->recordReplaceTypeName(
@@ -409,10 +425,10 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
                 type: strtoupper($record->type),
                 name: $record->name,
                 records: [$record->toArray()],
-                xShopperId: $shopperId,
+                xShopperId: $resolvedShopperId,
             );
 
-            return new OperationResult(
+            return new DnsRecordUpdateResult(
                 success: (bool) ($response['ok'] ?? true),
                 message: 'DNS record updated.',
                 code: 'update_dns_record.success',
@@ -424,9 +440,11 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         }
     }
 
-    public function deleteDnsRecord(DomainName $domain, ?string $recordId = null, ?DnsRecord $matchRecord = null, ?string $shopperId = null): OperationResult
+    public function deleteDnsRecord(DomainName $domain, ?string $recordId = null, ?DnsRecord $matchRecord = null, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordDeleteResult
     {
         $this->assertCapability(Capabilities::DNS_RECORD_DELETE);
+
+        $resolvedShopperId = $shopperId ?? $context?->scopeAsString('shopper_id', 'shopperId', 'shopper');
 
         if ($matchRecord === null) {
             throw new DomainProviderException(
@@ -442,10 +460,10 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
                 domain: $domain->full,
                 type: strtoupper($matchRecord->type),
                 name: $matchRecord->name,
-                xShopperId: $shopperId,
+                xShopperId: $resolvedShopperId,
             );
 
-            return new OperationResult(
+            return new DnsRecordDeleteResult(
                 success: (bool) ($response['ok'] ?? true),
                 message: 'DNS record deleted.',
                 code: 'delete_dns_record.success',

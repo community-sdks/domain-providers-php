@@ -13,11 +13,18 @@ use DomainProviders\DTO\DomainContact;
 use DomainProviders\DTO\DomainInfo;
 use DomainProviders\DTO\DomainName;
 use DomainProviders\DTO\DomainPrice;
+use DomainProviders\DTO\DomainRegistrationResult;
 use DomainProviders\DTO\DomainRegistrationPeriod;
+use DomainProviders\DTO\DomainRenewalResult;
+use DomainProviders\DTO\DomainTransferResult;
+use DomainProviders\DTO\DnsRecordCreateResult;
+use DomainProviders\DTO\DnsRecordDeleteResult;
+use DomainProviders\DTO\DnsRecordUpdateResult;
 use DomainProviders\DTO\NameserverSet;
-use DomainProviders\DTO\OperationResult;
+use DomainProviders\DTO\NameserverUpdateResult;
 use DomainProviders\DTO\ProviderCapability;
 use DomainProviders\DTO\ProviderMetadata;
+use DomainProviders\DTO\ProviderRequestContext;
 use DomainProviders\DTO\TransferAvailabilityResult;
 use DomainProviders\Registry\ProviderNotFoundException;
 
@@ -119,12 +126,13 @@ final class DomainProviderHandler implements DomainProviderInterface
         ?NameserverSet $nameservers = null,
         ?bool $privacyEnabled = null,
         ?string $marketId = null,
-    ): OperationResult {
+        ?ProviderRequestContext $context = null,
+    ): DomainRegistrationResult {
         return $this->selectForDomain($domain, Capabilities::DOMAIN_REGISTRATION)
-            ->registerDomain($domain, $period, $registrantContact, $nameservers, $privacyEnabled, $marketId);
+            ->registerDomain($domain, $period, $registrantContact, $nameservers, $privacyEnabled, $marketId, $context);
     }
 
-    public function renewDomain(DomainName $domain, DomainRegistrationPeriod $period): OperationResult
+    public function renewDomain(DomainName $domain, DomainRegistrationPeriod $period): DomainRenewalResult
     {
         return $this->selectForDomain($domain, Capabilities::DOMAIN_RENEWAL)->renewDomain($domain, $period);
     }
@@ -133,7 +141,7 @@ final class DomainProviderHandler implements DomainProviderInterface
         DomainName $domain,
         string $authCode,
         ?DomainContact $registrantContact = null,
-    ): OperationResult {
+    ): DomainTransferResult {
         return $this->selectForDomain($domain, Capabilities::DOMAIN_TRANSFER)
             ->transferDomain($domain, $authCode, $registrantContact);
     }
@@ -143,9 +151,9 @@ final class DomainProviderHandler implements DomainProviderInterface
         return $this->selectForDomain($domain, Capabilities::DOMAIN_INFO)->getDomainInfo($domain);
     }
 
-    public function listDomains(?int $page = null, ?int $pageSize = null, ?string $status = null, ?string $shopperId = null): array
+    public function listDomains(?int $page = null, ?int $pageSize = null, ?string $status = null, ?string $shopperId = null, ?ProviderRequestContext $context = null): array
     {
-        return $this->selectByCapability(Capabilities::DOMAIN_LISTING)->listDomains($page, $pageSize, $status, $shopperId);
+        return $this->selectByCapability(Capabilities::DOMAIN_LISTING)->listDomains($page, $pageSize, $status, $shopperId, $context);
     }
 
     public function getNameservers(DomainName $domain): NameserverSet
@@ -153,7 +161,7 @@ final class DomainProviderHandler implements DomainProviderInterface
         return $this->selectForDomain($domain, Capabilities::NAMESERVER_READ)->getNameservers($domain);
     }
 
-    public function setNameservers(DomainName $domain, NameserverSet $nameservers): OperationResult
+    public function setNameservers(DomainName $domain, NameserverSet $nameservers): NameserverUpdateResult
     {
         return $this->selectForDomain($domain, Capabilities::NAMESERVER_UPDATE)->setNameservers($domain, $nameservers);
     }
@@ -163,20 +171,20 @@ final class DomainProviderHandler implements DomainProviderInterface
         return $this->selectForDomain($domain, Capabilities::DNS_RECORD_LIST)->listDnsRecords($domain);
     }
 
-    public function createDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null): OperationResult
+    public function createDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordCreateResult
     {
-        return $this->selectForDomain($domain, Capabilities::DNS_RECORD_CREATE)->createDnsRecord($domain, $record, $shopperId);
+        return $this->selectForDomain($domain, Capabilities::DNS_RECORD_CREATE)->createDnsRecord($domain, $record, $shopperId, $context);
     }
 
-    public function updateDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null): OperationResult
+    public function updateDnsRecord(DomainName $domain, DnsRecord $record, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordUpdateResult
     {
-        return $this->selectForDomain($domain, Capabilities::DNS_RECORD_UPDATE)->updateDnsRecord($domain, $record, $shopperId);
+        return $this->selectForDomain($domain, Capabilities::DNS_RECORD_UPDATE)->updateDnsRecord($domain, $record, $shopperId, $context);
     }
 
-    public function deleteDnsRecord(DomainName $domain, ?string $recordId = null, ?DnsRecord $matchRecord = null, ?string $shopperId = null): OperationResult
+    public function deleteDnsRecord(DomainName $domain, ?string $recordId = null, ?DnsRecord $matchRecord = null, ?string $shopperId = null, ?ProviderRequestContext $context = null): DnsRecordDeleteResult
     {
         return $this->selectForDomain($domain, Capabilities::DNS_RECORD_DELETE)
-            ->deleteDnsRecord($domain, $recordId, $matchRecord, $shopperId);
+            ->deleteDnsRecord($domain, $recordId, $matchRecord, $shopperId, $context);
     }
 
     public function getDomainPricing(

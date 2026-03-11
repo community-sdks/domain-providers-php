@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 use DomainProviders\DTO\DomainName;
 use DomainProviders\DTO\DomainRegistrationPeriod;
+use DomainProviders\DTO\ProviderRequestContext;
 use DomainProviders\Handler\DomainProviderHandler;
 use DomainProviders\Provider\GoDaddy\GoDaddyConfig;
 use DomainProviders\Provider\GoDaddy\GoDaddyProviderFactory;
@@ -53,6 +54,10 @@ if ($availability->available) {
 
 // Request-scoped values like shopper and market are passed where needed:
 $domains = $provider->listDomains(status: 'active', shopperId: 'optional-shopper-id');
+
+// Or pass provider-agnostic context scopes (recommended for multi-provider use cases):
+$context = new ProviderRequestContext(scopes: ['shopper_id' => 'optional-shopper-id']);
+$domainsFromContext = $provider->listDomains(status: 'active', context: $context);
 ```
 
 ## Provider-agnostic routing handler
