@@ -10,6 +10,9 @@ use CommunitySDKs\GoDaddy\Dto\Domains\Request\CustomerDomainRequest;
 use CommunitySDKs\GoDaddy\Dto\Domains\Request\CustomerRegisterRequest;
 use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainAvailabilityRequest;
 use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainBodyRequest;
+use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainPathRequest;
+use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainPurchaseRequest;
+use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainRenewRequest;
 use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainsAgreementRequest;
 use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainsListRequest;
 use CommunitySDKs\GoDaddy\Dto\Domains\Request\DomainsTldsRequest;
@@ -81,6 +84,16 @@ final class GoDaddyDomainsSdkAdapter implements GoDaddyDomainsApiInterface
         return $this->normalizeResponse($response);
     }
 
+    public function registerDomain(array $body, ?string $xShopperId = null): mixed
+    {
+        $response = $this->client->domains()->purchase(new DomainPurchaseRequest(
+            body: $body,
+            xShopperId: $xShopperId,
+        ));
+
+        return $this->normalizeResponse($response, forceOk: true);
+    }
+
     public function registerDomainForCustomer(string $customerId, array $body, ?string $xRequestId = null): mixed
     {
         $response = $this->client->domains()->registerCustomerDomain(new CustomerRegisterRequest(
@@ -104,6 +117,17 @@ final class GoDaddyDomainsSdkAdapter implements GoDaddyDomainsApiInterface
         return $this->normalizeResponse($response, forceOk: true);
     }
 
+    public function renewDomain(string $domain, array $body, ?string $xShopperId = null): mixed
+    {
+        $response = $this->client->domains()->renew(new DomainRenewRequest(
+            domain: $domain,
+            xShopperId: $xShopperId,
+            body: $body,
+        ));
+
+        return $this->normalizeResponse($response, forceOk: true);
+    }
+
     public function transferDomainForCustomer(string $customerId, string $domain, array $body, ?string $xRequestId = null): mixed
     {
         $response = $this->client->domains()->transferCustomerDomain(new CustomerDomainBodyRequest(
@@ -111,6 +135,17 @@ final class GoDaddyDomainsSdkAdapter implements GoDaddyDomainsApiInterface
             domain: $domain,
             body: $body,
             xRequestId: $xRequestId,
+        ));
+
+        return $this->normalizeResponse($response, forceOk: true);
+    }
+
+    public function transferDomain(string $domain, array $body, ?string $xShopperId = null): mixed
+    {
+        $response = $this->client->domains()->transferIn(new DomainBodyRequest(
+            domain: $domain,
+            body: $body,
+            xShopperId: $xShopperId,
         ));
 
         return $this->normalizeResponse($response, forceOk: true);
@@ -128,6 +163,16 @@ final class GoDaddyDomainsSdkAdapter implements GoDaddyDomainsApiInterface
         return $this->normalizeResponse($response);
     }
 
+    public function getDomain(string $domain, ?string $xShopperId = null, ?array $includes = null): mixed
+    {
+        $response = $this->client->domains()->get(new DomainPathRequest(
+            domain: $domain,
+            xShopperId: $xShopperId,
+        ));
+
+        return $this->normalizeResponse($response);
+    }
+
     public function setDomainNameserversForCustomer(string $customerId, string $domain, array $body, ?string $xRequestId = null): mixed
     {
         $response = $this->client->domains()->replaceCustomerDomainNameServers(new CustomerDomainBodyRequest(
@@ -135,6 +180,17 @@ final class GoDaddyDomainsSdkAdapter implements GoDaddyDomainsApiInterface
             domain: $domain,
             body: $body,
             xRequestId: $xRequestId,
+        ));
+
+        return $this->normalizeResponse($response, forceOk: true);
+    }
+
+    public function setDomainNameservers(string $domain, array $body, ?string $xShopperId = null): mixed
+    {
+        $response = $this->client->domains()->update(new DomainBodyRequest(
+            domain: $domain,
+            body: $body,
+            xShopperId: $xShopperId,
         ));
 
         return $this->normalizeResponse($response, forceOk: true);
@@ -185,6 +241,13 @@ final class GoDaddyDomainsSdkAdapter implements GoDaddyDomainsApiInterface
         ));
 
         return $this->normalizeResponse($response);
+    }
+
+    public function getDomainTransfer(string $domain, ?string $xShopperId = null): mixed
+    {
+        // GoDaddy direct APIs do not expose a dedicated transfer-status endpoint in this SDK.
+        // Return domain details so the provider can infer transfer state from domain status fields.
+        return $this->getDomain(domain: $domain, xShopperId: $xShopperId);
     }
 
     /**

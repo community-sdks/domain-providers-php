@@ -68,7 +68,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
             providerName: 'GoDaddy',
             providerKey: 'godaddy',
             environment: $this->config->environment,
-            accountReference: $this->config->customerId,
+            accountReference: $this->config->usesResellerAccount() ? $this->config->customerId : null,
             supportedTlds: null,
             capabilitySummary: $capabilitySummary,
         );
@@ -164,6 +164,7 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         $this->assertCapability(Capabilities::DOMAIN_REGISTRATION);
 
         $resolvedMarketId = $marketId ?? $context?->scopeAsString('market_id', 'marketId', 'market');
+        $resolvedShopperId = $context?->scopeAsString('shopper_id', 'shopperId', 'shopper');
 
         $body = [
             'domain' => $domain->full,
@@ -189,10 +190,17 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         }
 
         try {
-            $response = $this->domainsApi->registerDomainForCustomer(
-                customerId: $this->config->customerId,
-                body: $body,
-            );
+            if ($this->config->usesResellerAccount()) {
+                $response = $this->domainsApi->registerDomainForCustomer(
+                    customerId: $this->requireCustomerId('register_domain'),
+                    body: $body,
+                );
+            } else {
+                $response = $this->domainsApi->registerDomain(
+                    body: $body,
+                    xShopperId: $resolvedShopperId,
+                );
+            }
 
             return new DomainRegistrationResult(
                 success: (bool) ($response['ok'] ?? true),
@@ -211,11 +219,18 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         $this->assertCapability(Capabilities::DOMAIN_RENEWAL);
 
         try {
-            $response = $this->domainsApi->renewDomainForCustomer(
-                customerId: $this->config->customerId,
-                domain: $domain->full,
-                body: ['period' => $period->years],
-            );
+            if ($this->config->usesResellerAccount()) {
+                $response = $this->domainsApi->renewDomainForCustomer(
+                    customerId: $this->requireCustomerId('renew_domain'),
+                    domain: $domain->full,
+                    body: ['period' => $period->years],
+                );
+            } else {
+                $response = $this->domainsApi->renewDomain(
+                    domain: $domain->full,
+                    body: ['period' => $period->years],
+                );
+            }
 
             return new DomainRenewalResult(
                 success: (bool) ($response['ok'] ?? true),
@@ -254,11 +269,18 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         }
 
         try {
-            $response = $this->domainsApi->transferDomainForCustomer(
-                customerId: $this->config->customerId,
-                domain: $domain->full,
-                body: $body,
-            );
+            if ($this->config->usesResellerAccount()) {
+                $response = $this->domainsApi->transferDomainForCustomer(
+                    customerId: $this->requireCustomerId('transfer_domain'),
+                    domain: $domain->full,
+                    body: $body,
+                );
+            } else {
+                $response = $this->domainsApi->transferDomain(
+                    domain: $domain->full,
+                    body: $body,
+                );
+            }
 
             return new DomainTransferResult(
                 success: (bool) ($response['ok'] ?? true),
@@ -277,10 +299,14 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         $this->assertCapability(Capabilities::DOMAIN_INFO);
 
         try {
-            $response = $this->domainsApi->getDomainForCustomer(
-                customerId: $this->config->customerId,
-                domain: $domain->full,
-            );
+            if ($this->config->usesResellerAccount()) {
+                $response = $this->domainsApi->getDomainForCustomer(
+                    customerId: $this->requireCustomerId('get_domain_info'),
+                    domain: $domain->full,
+                );
+            } else {
+                $response = $this->domainsApi->getDomain(domain: $domain->full);
+            }
             $data = $this->extractData($response);
 
             $rawStatuses = isset($data['status']) ? [(string) $data['status']] : null;
@@ -362,13 +388,22 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         $this->assertCapability(Capabilities::NAMESERVER_UPDATE);
 
         try {
-            $response = $this->domainsApi->setDomainNameserversForCustomer(
-                customerId: $this->config->customerId,
-                domain: $domain->full,
-                body: [
-                    'nameServers' => $nameservers->nameservers,
-                ],
-            );
+            if ($this->config->usesResellerAccount()) {
+                $response = $this->domainsApi->setDomainNameserversForCustomer(
+                    customerId: $this->requireCustomerId('set_nameservers'),
+                    domain: $domain->full,
+                    body: [
+                        'nameServers' => $nameservers->nameservers,
+                    ],
+                );
+            } else {
+                $response = $this->domainsApi->setDomainNameservers(
+                    domain: $domain->full,
+                    body: [
+                        'nameServers' => $nameservers->nameservers,
+                    ],
+                );
+            }
 
             return new NameserverUpdateResult(
                 success: (bool) ($response['ok'] ?? true),
@@ -516,10 +551,14 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         $this->assertCapability(Capabilities::DOMAIN_TRANSFER);
 
         try {
-            $response = $this->domainsApi->getDomainTransferForCustomer(
-                customerId: $this->config->customerId,
-                domain: $domain->full,
-            );
+            if ($this->config->usesResellerAccount()) {
+                $response = $this->domainsApi->getDomainTransferForCustomer(
+                    customerId: $this->requireCustomerId('check_transfer_availability'),
+                    domain: $domain->full,
+                );
+            } else {
+                $response = $this->domainsApi->getDomainTransfer(domain: $domain->full);
+            }
             $data = $this->extractData($response);
 
             $state = (string) ($data['status'] ?? 'unknown');
@@ -535,6 +574,21 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
         } catch (\Throwable $e) {
             throw $this->mapException('check_transfer_availability', $e);
         }
+    }
+
+    private function requireCustomerId(string $operation): string
+    {
+        $customerId = $this->config->customerId;
+        if ($customerId !== null && trim($customerId) !== '') {
+            return $customerId;
+        }
+
+        throw new DomainProviderException(
+            category: ErrorCategory::VALIDATION,
+            message: sprintf('%s requires GoDaddy customerId in reseller mode.', $operation),
+            codeName: $operation . '.validation',
+            retryable: false,
+        );
     }
 
     private function assertCapability(string $capability): void

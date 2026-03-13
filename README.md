@@ -33,7 +33,10 @@ use DomainProviders\Provider\GoDaddy\GoDaddyProviderFactory;
 $config = new GoDaddyConfig(
     apiKey: 'your-key',
     apiSecret: 'your-secret',
-    customerId: 'your-customer-id',
+    // Use reseller mode with customerId for /v2/customers/* endpoints,
+    // or direct mode without customerId for /v1/domains/* endpoints.
+    accountMode: GoDaddyConfig::ACCOUNT_MODE_DIRECT,
+    customerId: null,
     // Routing fields shared by all ProviderConfig implementations:
     onlyTlds: null,
     exceptTlds: ['rs', 'co.rs', 'in.rs'],
@@ -80,6 +83,7 @@ $godaddyConfig = new GoDaddyConfig(
     apiKey: 'gd-key',
     apiSecret: 'gd-secret',
     customerId: 'gd-customer',
+    accountMode: GoDaddyConfig::ACCOUNT_MODE_RESELLER,
     exceptTlds: ['rs', 'co.rs', 'in.rs'],
     priority: 20,
 );
@@ -161,5 +165,7 @@ $provider = $registry->get('my-provider');
 
 ## Provider notes (GoDaddy)
 
+- Supports both GoDaddy reseller account endpoints (`/v2/customers/*`) and direct account endpoints (`/v1/domains/*`) via `GoDaddyConfig::accountMode`.
+- In reseller mode, `customerId` is required. In direct mode, `customerId` can be `null`.
 - The `community-sdks/godaddy-php` client currently exposes DNS retrieval by `{type}/{name}` path, not a full zone list endpoint in this adapter.
 - Because of that, `dns_record_list` is declared unsupported for now, while create/update/delete DNS operations are supported.

@@ -42,6 +42,17 @@ final class GoDaddyProviderTest extends TestCase
         return new GoDaddyProvider($api, $this->config());
     }
 
+    private function directProvider(GoDaddyDomainsApiInterface $api): GoDaddyProvider
+    {
+        return new GoDaddyProvider($api, new GoDaddyConfig(
+            apiKey: 'key',
+            apiSecret: 'secret',
+            customerId: null,
+            environment: 'sandbox',
+            accountMode: GoDaddyConfig::ACCOUNT_MODE_DIRECT,
+        ));
+    }
+
     private function contact(): DomainContact
     {
         return new DomainContact(
@@ -174,6 +185,40 @@ final class GoDaddyProviderTest extends TestCase
         self::assertTrue($result->success);
     }
 
+    public function testRegisterDomainUsesDirectEndpointWhenConfiguredForDirectMode(): void
+    {
+        $api = $this->apiMock();
+        $api->expects(self::once())
+            ->method('getAgreement')
+            ->with(['com'], true, 'fr-FR', false)
+            ->willReturn(['data' => ['agreementKeys' => ['DNRA']]]);
+
+        $api->expects(self::once())
+            ->method('registerDomain')
+            ->with(
+                self::callback(static fn (array $body): bool => $body['domain'] === 'example.com' && $body['period'] === 1),
+                'shopper-direct-1',
+            )
+            ->willReturn(['ok' => true]);
+
+        $context = new ProviderRequestContext(scopes: [
+            'market_id' => 'fr-FR',
+            'shopper_id' => 'shopper-direct-1',
+        ]);
+
+        $result = $this->directProvider($api)->registerDomain(
+            new DomainName('example.com'),
+            new DomainRegistrationPeriod(1),
+            $this->contact(),
+            null,
+            true,
+            null,
+            $context,
+        );
+
+        self::assertTrue($result->success);
+    }
+
     public function testRenewDomainMapsRequest(): void
     {
         $api = $this->apiMock();
@@ -233,6 +278,29 @@ final class GoDaddyProviderTest extends TestCase
         self::assertSame('2027-01-01', $info->expirationDate);
         self::assertSame(['ns1.example.com', 'ns2.example.com'], $info->nameservers);
         self::assertTrue($info->locked);
+    }
+
+    public function testGetDomainInfoUsesDirectEndpointWhenConfiguredForDirectMode(): void
+    {
+        $api = $this->apiMock();
+        $api->expects(self::once())
+            ->method('getDomain')
+            ->with('example.com', null, null)
+            ->willReturn([
+                'path' => '/v1/domains/example.com',
+                'data' => [
+                    'domain' => 'example.com',
+                    'status' => 'ACTIVE',
+                    'expires' => '2027-01-01T00:00:00Z',
+                    'nameServers' => ['ns1.example.com', 'ns2.example.com'],
+                ],
+            ]);
+
+        $info = $this->directProvider($api)->getDomainInfo(new DomainName('example.com'));
+
+        self::assertSame('example.com', $info->domain);
+        self::assertSame('active', $info->status);
+        self::assertSame('2027-01-01', $info->expirationDate);
     }
 
     public function testListDomainsMapsResponseItems(): void
