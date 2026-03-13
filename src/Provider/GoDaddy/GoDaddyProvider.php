@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace DomainProviders\Provider\GoDaddy;
 
+use CommunitySDKs\GoDaddy\Exception\ApiException;
 use DomainProviders\Capabilities;
 use DomainProviders\Contract\DomainProviderInterface;
 use DomainProviders\Contract\TldDiscoveryInterface;
@@ -621,16 +622,24 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
 
     private function mapException(string $operation, \Throwable $e): DomainProviderException
     {
-        $message = strtolower($e->getMessage());
+        $providerMessage = $this->extractProviderErrorMessage($e);
+        $message = strtolower($providerMessage);
+        $statusCode = $e instanceof ApiException ? $e->getStatusCode() : null;
 
         $category = match (true) {
+            $statusCode === 401,
             str_contains($message, '401'),
             str_contains($message, 'unauthorized') => ErrorCategory::AUTHENTICATION,
+            $statusCode === 403,
             str_contains($message, '403'),
             str_contains($message, 'forbidden') => ErrorCategory::AUTHORIZATION,
+            $statusCode === 429,
             str_contains($message, '429'),
             str_contains($message, 'rate') => ErrorCategory::RATE_LIMIT,
+            $statusCode === 408,
+            $statusCode === 504,
             str_contains($message, 'timeout') => ErrorCategory::PROVIDER_TIMEOUT,
+            $statusCode === 404,
             str_contains($message, 'not found') => ErrorCategory::DOMAIN_NOT_FOUND,
             str_contains($message, 'unavailable') => ErrorCategory::DOMAIN_UNAVAILABLE,
             str_contains($message, 'already') && str_contains($message, 'register') => ErrorCategory::DOMAIN_ALREADY_REGISTERED,
@@ -639,11 +648,80 @@ final class GoDaddyProvider implements DomainProviderInterface, TldDiscoveryInte
 
         return new DomainProviderException(
             category: $category,
-            message: sprintf('%s failed: %s', $operation, $e->getMessage()),
+            message: sprintf('%s failed: %s', $operation, $providerMessage),
             codeName: $operation . '.' . $category,
             retryable: in_array($category, [ErrorCategory::PROVIDER_COMMUNICATION, ErrorCategory::PROVIDER_TIMEOUT, ErrorCategory::RATE_LIMIT], true),
             previous: $e,
         );
+    }
+
+    private function extractProviderErrorMessage(\Throwable $e): string
+    {
+        if (!$e instanceof ApiException) {
+            return $e->getMessage();
+        }
+
+        $body = trim($e->getResponseBody());
+        if ($body === '') {
+            return $e->getMessage();
+        }
+
+        try {
+            $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $body;
+        }
+
+        if (!is_array($decoded)) {
+            return $body;
+        }
+
+        $message = $this->firstStringFrom($decoded, ['message', 'detail', 'description', 'error', 'title']);
+        if ($message !== null) {
+            return $message;
+        }
+
+        if (isset($decoded['errors']) && is_array($decoded['errors'])) {
+            foreach ($decoded['errors'] as $error) {
+                if (!is_array($error)) {
+                    continue;
+                }
+
+                $nested = $this->firstStringFrom($error, ['message', 'detail', 'description', 'error', 'title']);
+                if ($nested !== null) {
+                    return $nested;
+                }
+            }
+        }
+
+        if (isset($decoded['fault']) && is_array($decoded['fault'])) {
+            $faultMessage = $this->firstStringFrom($decoded['fault'], ['message', 'detail', 'description', 'error', 'title']);
+            if ($faultMessage !== null) {
+                return $faultMessage;
+            }
+        }
+
+        return $e->getMessage();
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param list<string> $keys
+     */
+    private function firstStringFrom(array $data, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (!isset($data[$key]) || !is_string($data[$key])) {
+                continue;
+            }
+
+            $value = trim($data[$key]);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     /** @return list<string> */

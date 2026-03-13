@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace DomainProviders\Tests\Unit\Provider\GoDaddy;
 
+use CommunitySDKs\GoDaddy\Exception\ApiException;
 use DomainProviders\Capabilities;
 use DomainProviders\DTO\DnsRecord;
 use DomainProviders\DTO\DomainContact;
@@ -415,6 +416,29 @@ final class GoDaddyProviderTest extends TestCase
         } catch (DomainProviderException $e) {
             self::assertSame(ErrorCategory::AUTHENTICATION, $e->category);
             self::assertFalse((bool) $e->retryable);
+        }
+    }
+
+    public function testUsesProviderResponseMessageWhenApiExceptionHasJsonBody(): void
+    {
+        $api = $this->apiMock();
+        $api->expects(self::once())
+            ->method('available')
+            ->willThrowException(new ApiException(
+                message: 'GoDaddy API request failed with status 404',
+                statusCode: 404,
+                responseBody: '{"code":"NOT_FOUND","message":"ShopperId is not found"}',
+                headers: ['Content-Type' => 'application/json'],
+                requestMethod: 'GET',
+                requestUrl: 'https://api.godaddy.test/v1/domains/available'
+            ));
+
+        try {
+            $this->provider($api)->checkAvailability(new DomainName('example.com'));
+            self::fail('Expected DomainProviderException was not thrown.');
+        } catch (DomainProviderException $e) {
+            self::assertSame('check_availability failed: ShopperId is not found', $e->getMessage());
+            self::assertSame(ErrorCategory::DOMAIN_NOT_FOUND, $e->category);
         }
     }
 }
