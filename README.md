@@ -6,7 +6,7 @@ This package provides:
 
 - contract-aligned DTOs and operation interfaces
 - capability-aware provider abstraction
-- first provider adapter for GoDaddy via `community-sdks/godaddy-php`
+- provider adapters for Spaceship and GoDaddy
 
 ## Install
 
@@ -14,7 +14,72 @@ This package provides:
 composer require community-sdks/domain-providers-php
 ```
 
-GoDaddy support is included out of the box.
+Spaceship and GoDaddy support are included out of the box.
+
+## Quick start (Spaceship)
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use DomainProviders\DTO\DnsRecord;
+use DomainProviders\DTO\DomainContact;
+use DomainProviders\DTO\DomainName;
+use DomainProviders\DTO\DomainRegistrationPeriod;
+use DomainProviders\DTO\NameserverSet;
+use DomainProviders\Provider\Spaceship\SpaceshipConfig;
+use DomainProviders\Provider\Spaceship\SpaceshipProviderFactory;
+
+$config = new SpaceshipConfig(
+    apiKey: 'your-key',
+    apiSecret: 'your-secret',
+    environment: 'sandbox', // or 'production'
+    onlyTlds: ['com', 'net'],
+    exceptTlds: ['io'],
+    priority: 10,
+);
+
+$provider = SpaceshipProviderFactory::fromConfig($config);
+
+$availability = $provider->checkAvailability(new DomainName('example.com'));
+
+if ($availability->available) {
+    $registrant = new DomainContact(
+        fullName: 'Jane Doe',
+        email: 'jane@example.com',
+        phone: '+12025550123',
+        addressLine1: '123 Main Street',
+        addressLine2: null,
+        city: 'Phoenix',
+        stateOrRegion: 'AZ',
+        postalCode: '85001',
+        countryCode: 'US',
+        organization: null,
+    );
+
+    $provider->registerDomain(
+        domain: new DomainName('example.com'),
+        period: new DomainRegistrationPeriod(1),
+        registrantContact: $registrant,
+        nameservers: new NameserverSet(['ns1.example.com', 'ns2.example.com']),
+        privacyEnabled: true,
+    );
+}
+
+$records = $provider->listDnsRecords(new DomainName('example.com'));
+
+$provider->createDnsRecord(
+    new DomainName('example.com'),
+    new DnsRecord(
+        id: null,
+        type: 'A',
+        name: '@',
+        value: '203.0.113.10',
+        ttl: 3600,
+    ),
+);
+```
 
 ## Quick start (GoDaddy)
 
@@ -26,7 +91,6 @@ declare(strict_types=1);
 use DomainProviders\DTO\DomainName;
 use DomainProviders\DTO\DomainRegistrationPeriod;
 use DomainProviders\DTO\ProviderRequestContext;
-use DomainProviders\Handler\DomainProviderHandler;
 use DomainProviders\Provider\GoDaddy\GoDaddyConfig;
 use DomainProviders\Provider\GoDaddy\GoDaddyProviderFactory;
 
@@ -76,8 +140,17 @@ use DomainProviders\DTO\DomainName;
 use DomainProviders\Handler\DomainProviderHandler;
 use DomainProviders\Provider\GoDaddy\GoDaddyConfig;
 use DomainProviders\Provider\GoDaddy\GoDaddyProviderFactory;
-use Vendor\Namecheap\NamecheapConfig;
-use Vendor\Namecheap\NamecheapProviderFactory;
+use DomainProviders\Provider\Spaceship\SpaceshipConfig;
+use DomainProviders\Provider\Spaceship\SpaceshipProviderFactory;
+
+$spaceshipConfig = new SpaceshipConfig(
+    apiKey: 'sp-key',
+    apiSecret: 'sp-secret',
+    environment: 'sandbox',
+    onlyTlds: ['rs', 'co.rs', 'in.rs'],
+    priority: 10,
+    priorityTlds: ['com'],
+);
 
 $godaddyConfig = new GoDaddyConfig(
     apiKey: 'gd-key',
@@ -88,24 +161,16 @@ $godaddyConfig = new GoDaddyConfig(
     priority: 20,
 );
 
-$namecheapConfig = new NamecheapConfig(
-    apiKey: 'nc-key',
-    apiSecret: 'nc-secret',
-    onlyTlds: ['rs', 'co.rs', 'in.rs'],
-    priority: 10,
-    priorityTlds: ['com'],
-);
-
 $handler = (new DomainProviderHandler())
+    ->registerProvider('spaceship', SpaceshipProviderFactory::fromConfig($spaceshipConfig), $spaceshipConfig)
     ->registerProvider('godaddy', GoDaddyProviderFactory::fromConfig($godaddyConfig), $godaddyConfig)
-    ->registerProvider('namecheap', NamecheapProviderFactory::fromConfig($namecheapConfig), $namecheapConfig)
-    ->preferProviderForTld('com', 'namecheap');
+    ->preferProviderForTld('com', 'spaceship');
 
-$availability = $handler->checkAvailability(new DomainName('example.co.rs')); // routed to namecheap
-$comAvailability = $handler->checkAvailability(new DomainName('example.com')); // prefers namecheap
+$availability = $handler->checkAvailability(new DomainName('example.co.rs')); // routed to spaceship
+$comAvailability = $handler->checkAvailability(new DomainName('example.com')); // prefers spaceship
 
 // If provider supports TLD discovery, you can inspect its live TLD list.
-$godaddyTlds = $handler->listProviderTlds('godaddy');
+$spaceshipTlds = $handler->listProviderTlds('spaceship');
 ```
 
 Routing decision order for domain-based operations:
@@ -169,3 +234,9 @@ $provider = $registry->get('my-provider');
 - In reseller mode, `customerId` is required. In direct mode, `customerId` can be `null`.
 - The `community-sdks/godaddy-php` client currently exposes DNS retrieval by `{type}/{name}` path, not a full zone list endpoint in this adapter.
 - Because of that, `dns_record_list` is declared unsupported for now, while create/update/delete DNS operations are supported.
+
+## Provider notes (Spaceship)
+
+- Uses `SpaceshipConfig::environment` with `sandbox` or `production` to select the API base environment.
+- Supports domain availability, registration, renewal, transfer, domain info, nameserver read/update, and DNS record list/create/update/delete.
+- `pricing_lookup` is currently declared unsupported in this adapter.

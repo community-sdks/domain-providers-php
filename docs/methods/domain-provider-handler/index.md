@@ -14,7 +14,7 @@ Return supported TLDs for a provider when it implements `TldDiscoveryInterface`.
 
 ### Notes
 
-- For GoDaddy, this delegates to `/v1/domains/tlds` through `GoDaddyProvider::listSupportedTlds()`.
+- For providers that implement `TldDiscoveryInterface`, this delegates to the provider implementation such as `GoDaddyProvider::listSupportedTlds()`.
 - Returns an empty list when provider does not expose TLD discovery.
 
 ## `Prefer Provider For Tld`
@@ -32,7 +32,7 @@ Define explicit provider preference for a specific TLD before default priority s
 ### Example
 
 ```php
-$handler->preferProviderForTld('com', 'namecheap');
+$handler->preferProviderForTld('com', 'spaceship');
 ```
 
 ## `Register Provider`
